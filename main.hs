@@ -1,5 +1,6 @@
 import qualified Data.List
-import qualified Data.Set
+
+import Data.Maybe (fromMaybe)
 --import qualified Data.Array
 --import qualified Data.Bits
 
@@ -13,11 +14,25 @@ type Distance = Int
 
 type RoadMap = [(City,City,Distance)]
 
-{- cities :: RoadMap -> [City]
-cities roadMap = Data.List.nub ([ x | (x, _, _) <- roadMap ] ++ [ y | (_, y, _) <- roadMap ]) -}
+type AdjList = [(City,[(City,Distance)])]
+
+addNeighbor :: City -> (City, Distance) -> AdjList -> AdjList
+addNeighbor city neighbor [] = [(city, [neighbor])]
+addNeighbor city neighbor ((c, neighbors):rest)
+    | city == c  = (c, neighbor : neighbors) : rest
+    | otherwise  = (c, neighbors) : addNeighbor city neighbor rest
+
+
+roadMapToAdjList :: RoadMap -> AdjList
+roadMapToAdjList [] = []
+roadMapToAdjList ((city1, city2, dist):rest) =
+    addNeighbor city2 (city1, dist) (addNeighbor city1 (city2, dist) adjList)
+    where
+        adjList = roadMapToAdjList rest
 
 cities :: RoadMap -> [City]
-cities roadMap = Data.Set.toList $ Data.Set.fromList [x | (x, _, _) <- roadMap] `Data.Set.union` Data.Set.fromList [y | (_, y, _) <- roadMap]
+cities roadMap = Data.List.nub ([ x | (x, _, _) <- roadMap ] ++ [ y | (_, y, _) <- roadMap ])
+
 
 areAdjacent :: RoadMap -> City -> City -> Bool
 areAdjacent roadMap city1 city2 = any (\(c1, c2, _) -> (c1 == city1 && c2 == city2) || (c1 == city2 && c2 == city1)) roadMap
@@ -29,23 +44,43 @@ distance roadMap city1 city2 =
         []             -> Nothing
         _              -> Nothing
 
+
 adjacent :: RoadMap -> City -> [(City,Distance)]
 adjacent = undefined
 
-pathDistance :: RoadMap -> Path -> Distance
-pathDistance = undefined
+pathDistance :: RoadMap -> Path -> Maybe Distance
+pathDistance _ [] = Just 0
+pathDistance _ [_] = Just 0
+pathDistance roadMap (city1:city2:rest) =
+    case distance roadMap city1 city2 of
+        Just dist ->
+            case pathDistance roadMap (city2:rest) of
+                Just restDist -> Just (dist + restDist)
+                Nothing -> Nothing
+        Nothing -> Nothing
+
 
 rome :: RoadMap -> [City]
 rome = undefined
 
+
+dfs :: AdjList -> City -> [City] -> [City]
+dfs adjList city visited
+    | city `elem` visited = visited  -- Already visited this city
+    | otherwise = foldl (\v (neighbor, _) -> dfs adjList neighbor v) (city : visited) neighbors
+    where
+        neighbors = fromMaybe [] (lookup city adjList)
+
 isStronglyConnected :: RoadMap -> Bool
-isStronglyConnected = undefined
+isStronglyConnected roadMap =
+    let adjList = roadMapToAdjList roadMap
+        allCities = Data.List.nub (concatMap (\(c1, c2, _) -> [c1, c2]) roadMap)
+    in all (\city -> length (dfs adjList city []) == length allCities) allCities
 
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath = undefined
 
-travelSales :: RoadMap -> Path
-travelSales = undefined
+
 
 -- Some graphs to test your work
 gTest1 :: RoadMap
