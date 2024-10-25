@@ -1,7 +1,7 @@
 import qualified Data.List
 
 import Data.Maybe (fromMaybe)
---import qualified Data.Array
+import Data.Array (Array, array)
 --import qualified Data.Bits
 
 -- PFL 2024/2025 Practical assignment 1
@@ -15,6 +15,9 @@ type Distance = Int
 type RoadMap = [(City,City,Distance)]
 
 type AdjList = [(City,[(City,Distance)])]
+
+
+type Matrix = Data.Array.Array (Int,Int) (Maybe Distance)
 
 addNeighbor :: City -> (City, Distance) -> AdjList -> AdjList
 addNeighbor city neighbor [] = [(city, [neighbor])]
@@ -30,8 +33,27 @@ roadMapToAdjList ((city1, city2, dist):rest) =
     where
         adjList = roadMapToAdjList rest
 
+
 cities :: RoadMap -> [City]
 cities roadMap = Data.List.nub ([ x | (x, _, _) <- roadMap ] ++ [ y | (_, y, _) <- roadMap ])
+
+roadMapToMatrix :: RoadMap -> Matrix
+roadMapToMatrix roadMap = array bounds content
+  where
+    citiesList = cities roadMap 
+    n = length citiesList
+    bounds = ((0, 0), (n - 1, n - 1))
+    cityIndex city = fromMaybe (-1) (Data.List.elemIndex city citiesList)
+    initialContent = [((i, j), if i == j then Just 0 else Nothing) | i <- [0..n-1], j <- [0..n-1]]
+
+    updatedContent = foldl (\acc (c1, c2, dist) ->
+        let idx1 = cityIndex c1
+            idx2 = cityIndex c2
+        in if idx1 /= -1 && idx2 /= -1
+           then ((idx1, idx2), Just dist) : ((idx2, idx1), Just dist) : acc
+           else acc) initialContent roadMap
+
+    content = Data.List.foldl' (\acc ((i,j), dist) -> ((i,j), dist) : acc) [] updatedContent
 
 
 areAdjacent :: RoadMap -> City -> City -> Bool
@@ -81,7 +103,8 @@ shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath = undefined
 
 
-
+travelSales :: RoadMap -> Path
+travelSales =undefined
 -- Some graphs to test your work
 gTest1 :: RoadMap
 gTest1 = [("7","6",1),("8","2",2),("6","5",2),("0","1",4),("2","5",4),("8","6",6),("2","3",7),("7","8",7),("0","7",8),("1","2",8),("3","4",9),("5","4",10),("1","7",11),("3","5",14)]
