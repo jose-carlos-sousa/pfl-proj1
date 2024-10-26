@@ -1,7 +1,6 @@
 import qualified Data.List
-
-import Data.Maybe (fromMaybe)
 import Data.Array (Array, array)
+import Data.Maybe (fromMaybe, mapMaybe)
 --import qualified Data.Bits
 
 -- PFL 2024/2025 Practical assignment 1
@@ -33,10 +32,6 @@ roadMapToAdjList ((city1, city2, dist):rest) =
     where
         adjList = roadMapToAdjList rest
 
-
-cities :: RoadMap -> [City]
-cities roadMap = Data.List.nub ([ x | (x, _, _) <- roadMap ] ++ [ y | (_, y, _) <- roadMap ])
-
 roadMapToMatrix :: RoadMap -> Matrix
 roadMapToMatrix roadMap = array bounds content
   where
@@ -55,20 +50,31 @@ roadMapToMatrix roadMap = array bounds content
 
     content = Data.List.foldl' (\acc ((i,j), dist) -> ((i,j), dist) : acc) [] updatedContent
 
+-- 1.
+
+cities :: RoadMap -> [City]
+cities roadMap = Data.List.nub ([ x | (x, _, _) <- roadMap ] ++ [ y | (_, y, _) <- roadMap ])
+
+-- 2.
 
 areAdjacent :: RoadMap -> City -> City -> Bool
 areAdjacent roadMap city1 city2 = any (\(c1, c2, _) -> (c1 == city1 && c2 == city2) || (c1 == city2 && c2 == city1)) roadMap
+
+-- 3.
 
 distance :: RoadMap -> City -> City -> Maybe Distance
 distance roadMap city1 city2 = 
     case filter (\(c1, c2, d) -> (c1 == city1 && c2 == city2) || (c1 == city2 && c2 == city1)) roadMap of
         [(c1, c2, d)] -> Just d
-        []             -> Nothing
-        _              -> Nothing
+        []            -> Nothing
+        _             -> Nothing
 
+-- 4.
 
 adjacent :: RoadMap -> City -> [(City,Distance)]
-adjacent = undefined
+adjacent roadMap city = [(c2, dist) | (c1, c2, dist) <- roadMap, c1 == city]
+
+-- 5.
 
 pathDistance :: RoadMap -> Path -> Maybe Distance
 pathDistance _ [] = Just 0
@@ -81,10 +87,22 @@ pathDistance roadMap (city1:city2:rest) =
                 Nothing -> Nothing
         Nothing -> Nothing
 
+-- 6.
 
 rome :: RoadMap -> [City]
-rome = undefined
+rome roadMap =
+    let adjList = roadMapToAdjList roadMap
+        degrees = map (\(city, neighbors) -> (city, length neighbors)) adjList
+        maxDegree = maximum (map snd degrees)
+    in map fst (filter (\(_, degree) -> degree == maxDegree) degrees)
 
+-- 7.
+
+isStronglyConnected :: RoadMap -> Bool
+isStronglyConnected roadMap =
+    let adjList = roadMapToAdjList roadMap
+        allCities = Data.List.nub (concatMap (\(c1, c2, _) -> [c1, c2]) roadMap)
+    in all (\city -> length (dfs adjList city []) == length allCities) allCities
 
 dfs :: AdjList -> City -> [City] -> [City]
 dfs adjList city visited
@@ -93,18 +111,37 @@ dfs adjList city visited
     where
         neighbors = fromMaybe [] (lookup city adjList)
 
-isStronglyConnected :: RoadMap -> Bool
-isStronglyConnected roadMap =
-    let adjList = roadMapToAdjList roadMap
-        allCities = Data.List.nub (concatMap (\(c1, c2, _) -> [c1, c2]) roadMap)
-    in all (\city -> length (dfs adjList city []) == length allCities) allCities
+-- 8.
 
 shortestPath :: RoadMap -> City -> City -> [Path]
-shortestPath = undefined
+shortestPath roadMap start end = filterByShortestDistance roadMap (findPaths roadMap start end [])
 
+findPaths :: RoadMap -> City -> City -> Path -> [Path]
+findPaths roadMap start end path
+    | start == end = [path ++ [end]]
+    | otherwise = concatMap (\(next, _) -> findPaths roadMap next end (path ++ [start])) neighbors
+    where
+        neighbors = adjacent roadMap start
+
+shortestDistance :: RoadMap -> [Path] -> Maybe Distance
+shortestDistance roadMap paths = 
+    case distances of
+        [] -> Nothing
+        _ -> Just (minimum distances)
+    where
+        distances = mapMaybe (pathDistance roadMap) paths
+
+filterByShortestDistance :: RoadMap -> [Path] -> [Path]
+filterByShortestDistance roadMap paths = 
+    case shortestDistance roadMap paths of
+        Nothing -> []  -- No paths
+        Just minDist -> filter (\p -> pathDistance roadMap p == Just minDist) paths
+
+-- 9.
 
 travelSales :: RoadMap -> Path
 travelSales =undefined
+
 -- Some graphs to test your work
 gTest1 :: RoadMap
 gTest1 = [("7","6",1),("8","2",2),("6","5",2),("0","1",4),("2","5",4),("8","6",6),("2","3",7),("7","8",7),("0","7",8),("1","2",8),("3","4",9),("5","4",10),("1","7",11),("3","5",14)]
