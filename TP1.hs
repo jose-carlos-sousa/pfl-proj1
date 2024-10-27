@@ -145,23 +145,22 @@ filterByShortestDistance roadMap paths =
 
 -- 9.
 travelSales :: RoadMap -> Path
-travelSales roadmap = 
+travelSales roadmap =
     let cityList = cities roadmap
         indicesPath = travelSalesHelper (roadMapToMatrix roadmap) (length cityList)
     in map (cityList !!) indicesPath
 
-travelSalesHelper :: Matrix -> Int -> [Int] 
-travelSalesHelper matrix len = 
+travelSalesHelper :: Matrix -> Int -> [Int]
+travelSalesHelper matrix len =
     let initialMask = Data.Bits.clearBit ((1 `Data.Bits.shiftL` len) - 1) 0
         binaryMask = showIntAtBase 2 intToDigit initialMask ""
-    in trace ("Initial mask (decimal): " ++ show initialMask ++ " (binary): " ++ binaryMask) $ 
-       tspDP 0 initialMask matrix len 0
+    in tspDP 0 initialMask matrix len 0
 
 tspDP :: Int -> Int -> Matrix -> Int -> Int -> [Int]
 tspDP currentCity visited mat len currentCost
-    | visited == 0 = 
+    | visited == 0 =
         case mat ! (currentCity, 0) of
-            Just cost | cost >= 0 -> trace ("All cities visited, returning path: " ++ show [currentCity, 0]) [currentCity, 0]
+            Just cost | cost >= 0 -> [currentCity, 0]
             _ -> []
 
     | otherwise =
@@ -174,11 +173,7 @@ tspDP currentCity visited mat len currentCost
                      let restPath = tspDP nextCity newVisited mat len (currentCost + edgeCost),
                      not (null restPath),
                      let nextCost = currentCost + sum [fromMaybe 0 (mat ! (a, b)) | (a, b) <- zip restPath (tail restPath)]]
-        in trace ("Current city: " ++ show currentCity ++ 
-                  ", Path: " ++ show [currentCity] ++
-                  ", Next cities: " ++ show nextCities ++
-                  ", Mask (decimal): " ++ show visited ++
-                  " (binary): " ++ showIntAtBase 2 intToDigit visited "") $
+        in
            if null paths
            then []
            else let (_, bestPath) = minimumBy (comparing fst) paths
@@ -191,4 +186,4 @@ gTest2 :: RoadMap
 gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2","3",30)]
 
 gTest3 :: RoadMap -- unconnected graph
-gTest3 = [("0","1",4),("2","3",2)]
+gTest3 = [("0","1",4),("2","3",2),("0","2",2),("3","1",2)]
