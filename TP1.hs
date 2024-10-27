@@ -1,7 +1,13 @@
 import qualified Data.List
-import Data.Array (Array, array)
+import Data.Array (Array, array, (!),bounds)
 import Data.Maybe (fromMaybe, mapMaybe)
---import qualified Data.Bits
+import qualified Data.Bits
+import Data.List (minimumBy)
+import Data.Ord (comparing)
+import Debug.Trace (trace)
+import Control.Exception (mask)
+import Numeric (showIntAtBase)
+import Data.Char (intToDigit)
 
 -- PFL 2024/2025 Practical assignment 1
 
@@ -101,7 +107,7 @@ rome roadMap =
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected roadMap =
     let adjList = roadMapToAdjList roadMap
-        allCities = Data.List.nub (concatMap (\(c1, c2, _) -> [c1, c2]) roadMap)
+        allCities = cities roadMap
     in all (\city -> length (dfs adjList city []) == length allCities) allCities
 
 dfs :: AdjList -> City -> [City] -> [City]
@@ -138,11 +144,46 @@ filterByShortestDistance roadMap paths =
         Just minDist -> filter (\p -> pathDistance roadMap p == Just minDist) paths
 
 -- 9.
-
 travelSales :: RoadMap -> Path
-travelSales =undefined
+travelSales roadmap = 
+    let cityList = cities roadmap
+        indicesPath = travelSalesHelper (roadMapToMatrix roadmap) (length cityList)
+    in map (cityList !!) indicesPath
 
--- Some graphs to test your work
+travelSalesHelper :: Matrix -> Int -> [Int] 
+travelSalesHelper matrix len = 
+    let initialMask = Data.Bits.clearBit ((1 `Data.Bits.shiftL` len) - 1) 0
+        binaryMask = showIntAtBase 2 intToDigit initialMask ""
+    in trace ("Initial mask (decimal): " ++ show initialMask ++ " (binary): " ++ binaryMask) $ 
+       tspDP 0 initialMask matrix len 0
+
+tspDP :: Int -> Int -> Matrix -> Int -> Int -> [Int]
+tspDP currentCity visited mat len currentCost
+    | visited == 0 = 
+        case mat ! (currentCity, 0) of
+            Just cost | cost >= 0 -> trace ("All cities visited, returning path: " ++ show [currentCity, 0]) [currentCity, 0]
+            _ -> []
+
+    | otherwise =
+        let nextCities = [city | city <- [0..(len-1)], Data.Bits.testBit visited city]
+            paths = [(edgeCost + nextCost, currentCity : restPath) | 
+                     nextCity <- nextCities,
+                     let edgeCost = fromMaybe maxBound (mat ! (currentCity, nextCity)),
+                     edgeCost < maxBound,
+                     let newVisited = Data.Bits.clearBit visited nextCity,
+                     let restPath = tspDP nextCity newVisited mat len (currentCost + edgeCost),
+                     not (null restPath),
+                     let nextCost = currentCost + sum [fromMaybe 0 (mat ! (a, b)) | (a, b) <- zip restPath (tail restPath)]]
+        in trace ("Current city: " ++ show currentCity ++ 
+                  ", Path: " ++ show [currentCity] ++
+                  ", Next cities: " ++ show nextCities ++
+                  ", Mask (decimal): " ++ show visited ++
+                  " (binary): " ++ showIntAtBase 2 intToDigit visited "") $
+           if null paths
+           then []
+           else let (_, bestPath) = minimumBy (comparing fst) paths
+                in bestPath
+
 gTest1 :: RoadMap
 gTest1 = [("7","6",1),("8","2",2),("6","5",2),("0","1",4),("2","5",4),("8","6",6),("2","3",7),("7","8",7),("0","7",8),("1","2",8),("3","4",9),("5","4",10),("1","7",11),("3","5",14)]
 
