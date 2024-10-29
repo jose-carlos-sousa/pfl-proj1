@@ -135,40 +135,58 @@ filterByShortestDistance roadMap paths =
         Nothing -> []
         Just minDist -> filter (\p -> pathDistance roadMap p == Just minDist) paths
 
+
+-- Creates an array to store paths for each (city, visited) state
+createDPMatrix :: Int -> Data.Array.Array (Int, Integer) [Int]
+createDPMatrix n = Data.Array.array ((0, 0), (n - 1, (1 `Data.Bits.shiftL` n) - 1)) 
+                   [((i, j), []) | i <- [0 .. n - 1], j <- [0 .. (1 `Data.Bits.shiftL` n) - 1]]
+
+
+-- The main TSP function that initializes the recursive DP solution
 travelSales :: RoadMap -> Path
 travelSales roadmap =
     let cityList = cities roadmap
-        indicesPath = travelSalesHelper (roadMapToMatrix roadmap) (length cityList)
+        matrix = roadMapToMatrix roadmap
+        n = length cityList
+        dpMatrix = createDPMatrix n
+        startMask = Data.Bits.setBit 0 0  -- start with only city 0 visited
+        indicesPath = tspDP 0 startMask matrix n dpMatrix
     in map (cityList !!) indicesPath
 
-travelSalesHelper :: Matrix -> Int -> [Int]
-travelSalesHelper matrix len =
-    let initialMask = Data.Bits.clearBit ((1 `Data.Bits.shiftL` len) - 1) 0
-        binaryMask = toBinary initialMask
-    in tspDP 0 initialMask matrix len 0
-
-tspDP :: Int -> Int -> Matrix -> Int -> Int -> [Int]
-tspDP currentCity visited mat len currentCost
-    | visited == 0 =
-        case mat Data.Array.! (currentCity, 0) of
-            Just cost | cost >= 0 -> [currentCity, 0]
-            _ -> []
-    | otherwise =
-        let nextCities = [city | city <- [0..(len-1)], Data.Bits.testBit visited city]
-            paths = [(edgeCost + nextCost, currentCity : restPath) | 
-                     nextCity <- nextCities,
-                     let edgeCost = fromMaybe maxBound (mat Data.Array.! (currentCity, nextCity)),
-                     edgeCost < maxBound,
-                     let newVisited = Data.Bits.clearBit visited nextCity,
-                     let restPath = tspDP nextCity newVisited mat len (currentCost + edgeCost),
-                     not (null restPath),
-                     let nextCost = currentCost + sum [fromMaybe 0 (mat Data.Array.! (a, b)) | (a, b) <- zip restPath (tail restPath)]]
-        in
-           if null paths
-           then []
-           else let (_, bestPath) = Data.List.minimumBy compareFst paths
-                in bestPath
-
+-- Recursive function for TSP using DP with memoization
+tspDP :: Int -> Integer -> Matrix -> Int -> Data.Array.Array (Int, Integer) [Int] -> [Int]
+tspDP currentCity visited mat n dpMatrix =
+    case dpMatrix Data.Array.! (currentCity, visited) of
+        path@(_:_) -> path  -- Return cached path if it exists
+        [] ->  -- Compute if not found
+            let result = 
+                    -- Base case: All cities visited, return to start if possible
+                    if Data.Bits.popCount visited == n then  
+                        case mat Data.Array.! (currentCity, 0) of
+                            Just cost | cost >= 0 -> [currentCity, 0]
+                            _ -> []
+                    else
+                        let -- Find next cities not yet visited
+                            nextCities = [city | city <- [0 .. n - 1], 
+                                        not (Data.Bits.testBit visited city)]
+                            -- Calculate all possible paths to remaining cities
+                            paths = [(totalCost, currentCity : restPath) |
+                                    nextCity <- nextCities,
+                                    let edgeCost = fromMaybe maxBound (mat Data.Array.! (currentCity, nextCity)),
+                                    edgeCost < maxBound,
+                                    let newVisited = Data.Bits.setBit visited nextCity,
+                                    let restPath = tspDP nextCity newVisited mat n dpMatrix,
+                                    not (null restPath),
+                                    let pathCosts = [fromMaybe maxBound (mat Data.Array.! (a, b)) | 
+                                                   (a, b) <- zip (currentCity : restPath) restPath],
+                                    let totalCost = sum pathCosts]
+                        in if null paths
+                           then []
+                           else snd (Data.List.minimumBy compareFst paths)
+                
+                -- Update dpMatrix with computed result for memoization
+                newDpMatrix = dpMatrix Data.Array.// [((currentCity, visited), result)]
+            in result
 
 gTest1 :: RoadMap
 gTest1 = [("7","6",1),("8","2",2),("6","5",2),("0","1",4),("2","5",4),("8","6",6),("2","3",7),("7","8",7),("0","7",8),("1","2",8),("3","4",9),("5","4",10),("1","7",11),("3","5",14)]
