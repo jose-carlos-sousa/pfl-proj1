@@ -78,7 +78,7 @@ distance roadMap city1 city2 =
         _             -> Nothing
 
 adjacent :: RoadMap -> City -> [(City,Distance)]
-adjacent roadMap city = [(c2, dist) | (c1, c2, dist) <- roadMap, c1 == city]
+adjacent roadMap city = [(c2, dist) | (c1, c2, dist) <- roadMap, c1 == city]++[(c1, dist) | (c1, c2, dist) <- roadMap, c2 == city]
 
 pathDistance :: RoadMap -> Path -> Maybe Distance
 pathDistance _ [] = Just 0
@@ -111,38 +111,46 @@ dfs adjList city visited
     where
         neighbors = fromMaybe [] (lookup city adjList)
 
+type QueueEntry = (Distance, City, Path)
+
+-- Insert into sorted queue (priority queue implementation)
+insertQueue :: QueueEntry -> [QueueEntry] -> [QueueEntry]
+insertQueue x@(d1,_,_) [] = [x]
+insertQueue x@(d1,_,_) (y@(d2,_,_):ys)
+    | d1 <= d2  = x : y : ys
+    | otherwise = y : insertQueue x ys
+
+-- Modified shortestPath using Dijkstra's algorithm
 shortestPath :: RoadMap -> City -> City -> [Path]
-shortestPath roadMap start end = filterByShortestDistance roadMap (findPaths roadMap start end [])
-
-findPaths :: RoadMap -> City -> City -> Path -> [Path]
-findPaths roadMap start end path
-    | start == end = [path ++ [end]]
-    | otherwise = concatMap (\(next, _) -> findPaths roadMap next end (path ++ [start])) neighbors
-    where
-        neighbors = adjacent roadMap start
-
-shortestDistance :: RoadMap -> [Path] -> Maybe Distance
-shortestDistance roadMap paths = 
-    case distances of
-        [] -> Nothing
-        _ -> Just (minimum distances)
-    where
-        distances = mapMaybe (pathDistance roadMap) paths
-
-filterByShortestDistance :: RoadMap -> [Path] -> [Path]
-filterByShortestDistance roadMap paths = 
-    case shortestDistance roadMap paths of
-        Nothing -> []
-        Just minDist -> filter (\p -> pathDistance roadMap p == Just minDist) paths
+shortestPath roadMap start end 
+    | start == end = [[start]]
+    | otherwise = dijkstra roadMap end [(0, start, [start])] [] []
 
 
--- Creates an array to store paths for each (city, visited) state
-createDPMatrix :: Int -> Data.Array.Array (Int, Integer) [Int]
-createDPMatrix n = Data.Array.array ((0, 0), (n - 1, (1 `Data.Bits.shiftL` n) - 1)) 
-                   [((i, j), []) | i <- [0 .. n - 1], j <- [0 .. (1 `Data.Bits.shiftL` n) - 1]]
+
+-- Main Dijkstra's algorithm implementation
+dijkstra :: RoadMap -> City -> [QueueEntry] -> [City] -> [Path] -> [Path]
+dijkstra _ _ [] _ paths = paths
+dijkstra roadMap end ((totalDist, curr, currPath):queue) visited paths
+    | curr == end = 
+        case paths of
+            [] -> dijkstra roadMap end queue visited [currPath]
+            (p:_) -> case pathDistance roadMap p of
+                Just minDist 
+                    | totalDist == minDist -> dijkstra roadMap end queue visited (currPath:paths)
+                    | totalDist < minDist -> dijkstra roadMap end queue visited [currPath]
+                    | otherwise -> dijkstra roadMap end queue visited paths
+                Nothing -> dijkstra roadMap end queue visited [currPath]
+    | curr `elem` visited = dijkstra roadMap end queue visited paths
+    | otherwise = 
+        let neighbors = [(next, dist) | (next, dist) <- adjacent roadMap curr,
+                                      not (next `elem` visited)]
+            newQueue = foldl (\q (next, dist) -> 
+                            insertQueue (totalDist + dist, next, currPath ++ [next]) q)
+                            queue neighbors
+        in dijkstra roadMap end newQueue (curr:visited) paths
 
 
--- The main TSP function that initializes the recursive DP solution
 travelSales :: RoadMap -> Path
 travelSales roadmap =
     let cityList = cities roadmap
@@ -153,23 +161,25 @@ travelSales roadmap =
         indicesPath = tspDP 0 startMask matrix n dpMatrix
     in map (cityList !!) indicesPath
 
--- Recursive function for TSP using DP with memoization
-tspDP :: Int -> Integer -> Matrix -> Int -> Data.Array.Array (Int, Integer) [Int] -> [Int]
+createDPMatrix :: Int -> Data.Array.Array (Int, Int) [Int]
+createDPMatrix n = Data.Array.array ((0,0), (n-1, (1 `Data.Bits.shiftL` n) - 1)) 
+                  [((i,j), []) | i <- [0..n-1], j <- [0..(1 `Data.Bits.shiftL` n) - 1]]
+
+tspDP :: Int -> Int -> Matrix -> Int -> Data.Array.Array (Int, Int) [Int] -> [Int]
 tspDP currentCity visited mat n dpMatrix =
     case dpMatrix Data.Array.! (currentCity, visited) of
-        path@(_:_) -> path  -- Return cached path if it exists
+        path@(_:_) -> path  -- Return cached result if it exists
         [] ->  -- Compute if not found
             let result = 
-                    -- Base case: All cities visited, return to start if possible
-                    if Data.Bits.popCount visited == n then  
-                        case mat Data.Array.! (currentCity, 0) of
+                    if Data.Bits.popCount visited == n then  -- all cities visited
+                        case mat Data.Array.! (currentCity, 0) of  -- check path back to start
                             Just cost | cost >= 0 -> [currentCity, 0]
                             _ -> []
                     else
-                        let -- Find next cities not yet visited
-                            nextCities = [city | city <- [0 .. n - 1], 
+                        let -- Get unvisited cities
+                            nextCities = [city | city <- [0..n-1], 
                                         not (Data.Bits.testBit visited city)]
-                            -- Calculate all possible paths to remaining cities
+                            -- Try paths through each unvisited city
                             paths = [(totalCost, currentCity : restPath) |
                                     nextCity <- nextCities,
                                     let edgeCost = fromMaybe maxBound (mat Data.Array.! (currentCity, nextCity)),
@@ -184,9 +194,10 @@ tspDP currentCity visited mat n dpMatrix =
                            then []
                            else snd (Data.List.minimumBy compareFst paths)
                 
-                -- Update dpMatrix with computed result for memoization
                 newDpMatrix = dpMatrix Data.Array.// [((currentCity, visited), result)]
             in result
+
+
 
 gTest1 :: RoadMap
 gTest1 = [("7","6",1),("8","2",2),("6","5",2),("0","1",4),("2","5",4),("8","6",6),("2","3",7),("7","8",7),("0","7",8),("1","2",8),("3","4",9),("5","4",10),("1","7",11),("3","5",14)]
