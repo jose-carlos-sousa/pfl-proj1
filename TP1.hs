@@ -111,18 +111,29 @@ rome roadMap =
         maxDegree = maximum (map snd degrees)
     in map fst (filter (\(_, degree) -> degree == maxDegree) degrees)
 
-isStronglyConnected :: RoadMap -> Bool
-isStronglyConnected roadMap =
-    let adjList = roadMapToAdjList roadMap
-        allCities = cities roadMap
-    in all (\city -> length (dfs adjList city []) == length allCities) allCities
 
-dfs :: AdjList -> City -> [City] -> [City]
-dfs adjList city visited
-    | city `elem` visited = visited
-    | otherwise = foldl (\v (neighbor, _) -> dfs adjList neighbor v) (city : visited) neighbors
-    where
-        neighbors = fromMaybe [] (lookup city adjList)
+cityIndex roadMap city = fromMaybe (-1) (Data.List.elemIndex city (cities roadMap))
+
+-- Update the mask to include the given city
+updateMask :: RoadMap -> Integer -> City -> Integer
+updateMask roadMap mask city = mask Data.Bits..|. (1 `Data.Bits.shiftL` (cityIndex roadMap city))
+
+dfs :: RoadMap -> AdjList -> City -> Integer -> Integer
+dfs roadMap adjList currentCity currentMask =
+    if Data.Bits.testBit currentMask (cityIndex roadMap currentCity)
+    then 0 -- Already visited
+    else neighborResults Data.Bits..|. (1 `Data.Bits.shiftL` (cityIndex roadMap currentCity)) -- Include current city in the result
+  where
+    updatedMask = Data.Bits.setBit currentMask (cityIndex roadMap currentCity)
+    neighbors = [ city | (city, distance) <- adjacent roadMap currentCity ]
+    neighborResults = foldl (\acc neiCity -> acc Data.Bits..|. dfs roadMap adjList neiCity updatedMask) 0 neighbors
+
+isStronglyConnected :: RoadMap -> Bool
+isStronglyConnected roadMap = all (\city -> Data.Bits.popCount (dfs roadMap adjList city 0) == length allCities) allCities
+                                where adjList = roadMapToAdjList roadMap
+                                      allCities = cities roadMap
+                                
+
 
 type QueueEntry = (Distance, City, Path)
 
@@ -219,4 +230,4 @@ gTest2 :: RoadMap
 gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2","3",30)]
 
 gTest3 :: RoadMap -- unconnected graph
-gTest3 = [("0","1",4),("2","3",2),("0","2",2),("3","1",2)]
+gTest3 = [("0","1",4),("2","3",2),("2","0",2)]
