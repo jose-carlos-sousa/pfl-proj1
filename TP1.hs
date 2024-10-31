@@ -118,6 +118,7 @@ cityIndex roadMap city = fromMaybe (-1) (Data.List.elemIndex city (cities roadMa
 updateMask :: RoadMap -> Integer -> City -> Integer
 updateMask roadMap mask city = mask Data.Bits..|. (1 `Data.Bits.shiftL` (cityIndex roadMap city))
 
+
 dfs :: RoadMap -> AdjList -> City -> Integer -> Integer
 dfs roadMap adjList currentCity currentMask =
     if Data.Bits.testBit currentMask (cityIndex roadMap currentCity)
@@ -128,6 +129,7 @@ dfs roadMap adjList currentCity currentMask =
     neighbors = [ city | (city, distance) <- adjacent roadMap currentCity ]
     neighborResults = foldl (\acc neiCity -> acc Data.Bits..|. dfs roadMap adjList neiCity updatedMask) 0 neighbors
 
+-- Time complexity will be O(n²) n calls to O(n+e) dfs
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected roadMap = all (\city -> Data.Bits.popCount (dfs roadMap adjList city 0) == length allCities) allCities
                                 where adjList = roadMapToAdjList roadMap
