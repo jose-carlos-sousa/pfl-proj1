@@ -64,32 +64,45 @@ roadMapToMatrix roadMap = Data.Array.array bounds content
 
     content = Data.List.foldl' (\acc ((i,j), dist) -> ((i,j), dist) : acc) [] updatedContent
 
+
+-- Given a roadmap returns unique cities
+-- Does this by using nub which returns unique elements in a List
+-- In this case the list used is the concatenation of one with the elements where city is first and another where it is second
+-- The overall complexity will be O(n²) because of nub
+
 cities :: RoadMap -> [City]
-cities roadMap = Data.List.nub ([ x | (x, _, _) <- roadMap ] ++ [ y | (_, y, _) <- roadMap ])
+cities roadmap = Data.List.nub ([x  | (x,_,_) <- roadmap] ++ [y  | (_,y,_) <- roadmap])
 
 areAdjacent :: RoadMap -> City -> City -> Bool
 areAdjacent roadMap city1 city2 = any (\(c1, c2, _) -> (c1 == city1 && c2 == city2) || (c1 == city2 && c2 == city1)) roadMap
 
+-- Basically using list comprehension gets the element where c1 is first and c2 second or vice-versa
+--This will be O(n) it goes over the whole list
+--note to myself maybe using find would be better as it would stop earlier complexity wouldnt change in big O tho
+
 distance :: RoadMap -> City -> City -> Maybe Distance
-distance roadMap city1 city2 = 
-    case filter (\(c1, c2, d) -> (c1 == city1 && c2 == city2) || (c1 == city2 && c2 == city1)) roadMap of
-        [(c1, c2, d)] -> Just d
-        []            -> Nothing
-        _             -> Nothing
+distance roadmap city1 city2 =case [d | (c1, c2, d) <- roadmap , (city1 ==c1 && city2==c2) || (city1 ==c2 && city2==c1)] of
+                                [d] -> Just d
+                                [] ->Nothing
+                                _   -> Nothing  -- In case there are multiple distances
+
 
 adjacent :: RoadMap -> City -> [(City,Distance)]
 adjacent roadMap city = [(c2, dist) | (c1, c2, dist) <- roadMap, c1 == city]++[(c1, dist) | (c1, c2, dist) <- roadMap, c2 == city]
 
+--Basically for every pair in Path I check if exists if it does it is its distance plus the distance of rest of path if it doesnt exist is just Nothing
+-- complexity is O(m*n) where m is path size and n is the size of the roadmap
+
 pathDistance :: RoadMap -> Path -> Maybe Distance
 pathDistance _ [] = Just 0
 pathDistance _ [_] = Just 0
-pathDistance roadMap (city1:city2:rest) =
-    case distance roadMap city1 city2 of
-        Just dist ->
-            case pathDistance roadMap (city2:rest) of
-                Just restDist -> Just (dist + restDist)
-                Nothing -> Nothing
-        Nothing -> Nothing
+pathDistance roadmap (c1:c2:rest) = case distance roadmap c1 c2 of
+                                    Just d  -> case pathDistance roadmap (c2:rest) of
+                                                    Just d2 -> Just (d + d2)
+                                                    Nothing -> Nothing
+                                    Nothing -> Nothing
+
+
 
 rome :: RoadMap -> [City]
 rome roadMap =
