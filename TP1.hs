@@ -146,36 +146,41 @@ insertQueue x@(d1,_,_) (y@(d2,_,_):ys)
     | d1 <= d2  = x : y : ys
     | otherwise = y : insertQueue x ys
 
--- Modified shortestPath using Dijkstra's algorithm
+-- shortestPath function using Dijkstra's algorithm
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath roadMap start end 
     | start == end = [[start]]
-    | otherwise = dijkstra roadMap end [(0, start, [start])] [] []
-
-
+    | otherwise =
+        let adjList = roadMapToAdjList roadMap
+        in dijkstra adjList end [(0, start, [start])] [] []
 
 -- Main Dijkstra's algorithm implementation
-dijkstra :: RoadMap -> City -> [QueueEntry] -> [City] -> [Path] -> [Path]
+dijkstra :: AdjList -> City -> [QueueEntry] -> [City] -> [Path] -> [Path]
 dijkstra _ _ [] _ paths = paths
-dijkstra roadMap end ((totalDist, curr, currPath):queue) visited paths
+dijkstra adjList end ((totalDist, curr, currPath):queue) visited paths
     | curr == end = 
         case paths of
-            [] -> dijkstra roadMap end queue visited [currPath]
-            (p:_) -> case pathDistance roadMap p of
-                Just minDist 
-                    | totalDist == minDist -> dijkstra roadMap end queue visited (currPath:paths)
-                    | totalDist < minDist -> dijkstra roadMap end queue visited [currPath]
-                    | otherwise -> dijkstra roadMap end queue visited paths
-                Nothing -> dijkstra roadMap end queue visited [currPath]
-    | curr `elem` visited = dijkstra roadMap end queue visited paths
-    | otherwise = 
-        let neighbors = [(next, dist) | (next, dist) <- adjacent roadMap curr,
-                                      not (next `elem` visited)]
-            newQueue = foldl (\q (next, dist) -> 
-                            insertQueue (totalDist + dist, next, currPath ++ [next]) q)
-                            queue neighbors
-        in dijkstra roadMap end newQueue (curr:visited) paths
+            [] -> dijkstra adjList end queue visited [currPath]
+            (p:_) ->
+                if totalDist == pathDistanceAdj p adjList
+                then dijkstra adjList end queue visited (currPath : paths)
+                else if totalDist < pathDistanceAdj p adjList
+                     then dijkstra adjList end queue visited [currPath]
+                     else dijkstra adjList end queue visited paths
+    | curr `elem` visited = dijkstra adjList end queue visited paths
+    | otherwise =
+        let neighbours = fromMaybe [] (Data.List.lookup curr adjList)
+            newQueue = foldl (\q (next, dist) ->
+                insertQueue (totalDist + dist, next, currPath ++ [next]) q) queue neighbours
+        in dijkstra adjList end newQueue (curr : visited) paths
 
+-- Helper function to work on AdjList instead of RoadMap
+pathDistanceAdj :: Path -> AdjList -> Distance
+pathDistanceAdj [] _ = 0
+pathDistanceAdj [_] _ = 0
+pathDistanceAdj (c1:c2:rest) adjList =
+    case Data.List.lookup c1 adjList >>= lookup c2 of
+        Just dist -> dist + pathDistanceAdj (c2:rest) adjList
 
 travelSales :: RoadMap -> Path
 travelSales roadmap =
