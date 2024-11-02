@@ -273,35 +273,31 @@ fib n = findTable t n
 
 compTsp :: Matrix -> Int -> Table TspEntry TspCoord -> TspCoord -> TspEntry
 compTsp g n a (i, k)
-  | setEmpty k = 
-      let finalEdgeWeight = weight i n g
-      in if finalEdgeWeight < maxBound 
-         then (finalEdgeWeight, [i, n])
-         else (maxBound, [])
-  | otherwise = 
-      let paths = [(totalCost, i : restPath) |
-                   j <- set2List k,
-                   let edgeWeight = weight i j g,
-                   edgeWeight < maxBound,
-                   let (subCost, restPath) = findTable a (j, delSet j k),
-                   not (null restPath),
-                   let totalCost = edgeWeight + subCost]
-      in if null paths
-           then (maxBound, [])
-           else minimum paths
+    |setEmpty k =if (weight i n g) < maxBound then (weight i n g, [i, n]) else (maxBound, []) -- If the set is empty, return the weight of the edge from i to n
+    |otherwise = if null paths then (maxBound, []) else minimum paths -- Otherwise, find the minimum path from i to n
+        where
+            paths = [(totalCost, i : restPath) |  -- For each j in k, find the minimum path from j to n and add the weight of the edge from i to j
+                    j <- set2List k,
+                    let edgeWeight = weight i j g,
+                    edgeWeight < maxBound,
+                    let (subCost, restPath) = findTable a (j, delSet j k),
+                    not (null restPath),
+                    let totalCost = edgeWeight + subCost]
+
 
 bndsTsp :: Int -> ((Int, Set), (Int, Set))
 bndsTsp n = ((1, emptySet), (n, fullSet (n - 1)))
 
 tsp :: Matrix -> (Int, [Int])
 tsp g
-    | n == 0    = (0, [])         
-    | n == 1    = (0, [0])        
-    | otherwise = findTable t (n, fullSet (n - 1))
+    | n == 0    = (0, [])         -- If there are no nodes, return 0
+    | n == 1    = (0, [0])        -- If there is only one node, return 0
+    | otherwise = findTable t (n, fullSet (n - 1)) --- Otherwise, find the minimum path from n to all the other nodes
     where
         n = length (nodes g)
-        t = dynamic (compTsp g n) (bndsTsp n)
+        t = dynamic (compTsp g n) (bndsTsp n) -- Create a dynamic table to store the results of the subproblems
 
+--Complexity of tsp is O(n*2^n) where n is the number of nodes in the graph
 travelSales :: RoadMap -> Path
 travelSales roadmap = map (cities roadmap !!) (map (\n -> n - 1) (snd (tsp (roadMapToMatrix roadmap))))
 
