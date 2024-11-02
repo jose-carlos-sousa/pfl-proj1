@@ -224,66 +224,66 @@ weight x y g = let w = g Data.Array.! (x, y) in
         Nothing -> maxBound
 
 
-type Set = Int
+type Set = Integer  
 
-emptySet = 0 
+emptySet :: Set
+emptySet = 0
 
-setEmpty n = n ==0
+setEmpty :: Set -> Bool
+setEmpty n = n == 0
 
 
-fullSet n | (n>=0) && (n<=maxSet)  = 2 ^ (n+ 1 ) -2
-          |  otherwise = error ( " fullset : illegal set = " ++ show n)
+fullSet :: Int -> Set
+fullSet n = 2 ^ (n + 1) - 2
 
---adiciona bit a uma mascara
-addSet i s = d_*e+m
-    where(d,m) = divMod s e
-         e = 2^i
-         d_ = if odd d then d   else d+1
+-- Adds a bit to a mask
+addSet :: Int -> Set -> Set
+addSet i s = d_ * e + m
+    where (d, m) = divMod s e
+          e = 2 ^ i
+          d_ = if odd d then d else d + 1
 
---remove bit de uma mascara
+-- Removes a bit from a mask
+delSet :: Int -> Set -> Set
 delSet i s = d_ * e + m
-  where (d, m) = divMod s e
-        e = 2 ^ i
-        d_ = if odd d then d - 1 else d
+    where (d, m) = divMod s e
+          e = 2 ^ i
+          d_ = if odd d then d - 1 else d
 
+-- Converts a set to a list
+set2List :: Set -> [Int]
 set2List s = s2l s 0
-        where   s2l 0 _ = []
-                s2l n i | odd n   = i : s2l (n `div` 2) (i+1)
-                        | otherwise = s2l (n `div` 2) (i+1)
+    where s2l 0 _ = []
+          s2l n i | odd n   = i : s2l (n `div` 2) (i + 1)
+                   | otherwise = s2l (n `div` 2) (i + 1)
 
-maxSet = truncate ( logBase 2 ( fromIntegral (maxBound :: Int ) ) ) - 1
-
-
-type TspCoord = ( Int , Set  )
-type TspEntry = ( Int , [Int] ) --An entry in the table is a tuple which consists of the value c (of type Int) and the corresponding shortest path (a list of vertices). 
-
-
+type TspCoord = (Int, Set)
+type TspEntry = (Int, [Int]) -- An entry in the table is a tuple consisting of the value c (of type Int) and the corresponding shortest path (a list of vertices).
 
 adjacentNodes :: Matrix -> Int -> [Int]
 adjacentNodes g v1 = [v2 | v2 <- nodes g, (g Data.Array.! (v1, v2)) /= Nothing]
 
 compTsp :: Matrix -> Int -> Table TspEntry TspCoord -> TspCoord -> TspEntry
-compTsp g n a (i,k)
+compTsp g n a (i, k)
   | setEmpty k = 
       let finalEdgeWeight = weight i n g
       in if finalEdgeWeight < maxBound 
-         then (finalEdgeWeight, [i,n])
+         then (finalEdgeWeight, [i, n])
          else (maxBound, [])
-  | otherwise =let
-     paths = [(totalCost, i : restPath) |
-             j <- set2List k,
-             let edgeWeight = weight i j g,
-             edgeWeight < maxBound,
-             let (subCost, restPath) = findTable a (j, delSet j k),
-             not (null restPath),
-             let totalCost = edgeWeight + subCost]
-        in if null paths || paths == []
+  | otherwise = 
+      let paths = [(totalCost, i : restPath) |
+                   j <- set2List k,
+                   let edgeWeight = weight i j g,
+                   edgeWeight < maxBound,
+                   let (subCost, restPath) = findTable a (j, delSet j k),
+                   not (null restPath),
+                   let totalCost = edgeWeight + subCost]
+      in if null paths
            then (maxBound, [])
            else minimum paths
-   
 
-bndsTsp :: Int -> ( ( Int , Set ) , ( Int , Set ) )
-bndsTsp n = ( ( 1 , emptySet ) , (n , fullSet n) )
+bndsTsp :: Int -> ((Int, Set), (Int, Set))
+bndsTsp n = ((1, emptySet), (n, fullSet (n - 1)))
 
 tsp :: Matrix -> (Int, [Int])
 tsp g
