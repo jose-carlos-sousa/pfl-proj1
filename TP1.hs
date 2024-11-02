@@ -1,7 +1,6 @@
 import qualified Data.List
 import qualified Data.Array
 import qualified Data.Bits
-import Debug.Trace
 
 newTable ::(Data.Array.Ix b) =>[(b, a)] -> Table a b
 findTable ::(Data.Array.Ix b) =>Table a b -> b -> a
@@ -155,17 +154,20 @@ type QueueEntry = (Distance, City, Path)
 
 -- Insert into sorted queue (priority queue implementation)
 insertQueue :: QueueEntry -> [QueueEntry] -> [QueueEntry]
-insertQueue x@(d1,_,_) [] = [x]
-insertQueue x@(d1,_,_) (y@(d2,_,_):ys)
-    | d1 <= d2  = x : y : ys
-    | otherwise = y : insertQueue x ys
+insertQueue x [] = [x] 
+insertQueue x (y:ys) = 
+    let (d1, _, _) = x  
+        (d2, _, _) = y 
+    in if d1 <= d2 then 
+        x : y : ys       -- If d1 is less than or equal to d2, place x in front of y
+       else 
+        y : insertQueue x ys  -- Otherwise, continue inserting x into the rest of the queue
 
 -- Modified shortestPath using Dijkstra's algorithm
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath roadMap start end 
     | start == end = [[start]]
     | otherwise = dijkstra roadMap end [(0, start, [start])] [] []
-
 
 
 -- Main Dijkstra's algorithm implementation
@@ -217,7 +219,6 @@ mkGraph dir bnds@(1,u) es
 nodes g = Data.Array.range (1,u ) where ((1, _), (u,_)) = Data.Array.bounds g
 
 weight x y g = let w = g Data.Array.! (x, y) in
-    trace ("Looking up weight for edge (" ++ show x ++ ", " ++ show y ++ "): " ++ show w) $
     case w of
         Just weightValue -> weightValue
         Nothing -> maxBound
@@ -306,8 +307,22 @@ gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2",
 gTest3 :: RoadMap -- unconnected graph
 gTest3 = [("0", "1", 5), ("1", "2", 10), ("2", "0", 15)]
 
-gTest4 :: RoadMap -- test graph
-gTest4 = []
+gTest4 :: RoadMap -- unconnected graph
+gTest4 = [("0", "1", 5), ("0", "2", 21), ("0", "3", 38), ("0", "4", 46), ("0", "5", 40),
+           ("0", "6", 27), ("0", "7", 114), ("0", "8", 43), ("0", "9", 26), ("0", "10", 34),
+           ("1", "2", 25), ("1", "3", 41), ("1", "4", 48), ("1", "5", 43), ("1", "6", 29),
+           ("1", "7", 118), ("1", "8", 44), ("1", "9", 24), ("1", "10", 38),
+           ("2", "3", 39), ("2", "4", 33), ("2", "5", 21), ("2", "6", 18), ("2", "7", 94),
+           ("2", "8", 37), ("2", "9", 31), ("2", "10", 15),
+           ("3", "4", 72), ("3", "5", 57), ("3", "6", 57), ("3", "7", 112), ("3", "8", 75),
+           ("3", "9", 63), ("3", "10", 51),
+           ("4", "5", 17), ("4", "6", 20), ("4", "7", 83), ("4", "8", 16), ("4", "9", 34),
+           ("4", "10", 22),
+           ("5", "6", 19), ("5", "7", 78), ("5", "8", 29), ("5", "9", 38), ("5", "10", 6),
+           ("6", "7", 96), ("6", "8", 19), ("6", "9", 19), ("6", "10", 18),
+           ("7", "8", 99), ("7", "9", 115), ("7", "10", 81),
+           ("8", "9", 23), ("8", "10", 32),
+           ("9", "10", 36)]
 main :: IO ()
 main = do
     let citi = cities gTest1
