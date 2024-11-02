@@ -93,28 +93,14 @@ type TspEntry = ( Int , [Int] ) --An entry in the table is a tuple which consist
 
 
 
-adjacentNodes :: Graph -> Int -> [Int]
+adjacentNodes :: Matrix -> Int -> [Int]
 adjacentNodes g v1 = [v2 | v2 <- nodes g, (g Data.Array.! (v1, v2)) /= Nothing]
 
-compTsp :: Graph -> Int -> Table TspEntry TspCoord -> TspCoord -> TspEntry
+compTsp :: Graph  -> Int -> Table TspEntry TspCoord -> TspCoord -> TspEntry
 compTsp g n a (i,k)
-  | setEmpty k = 
-      let finalEdgeWeight = weight i n g
-      in if finalEdgeWeight < maxBound 
-         then (finalEdgeWeight, [i,n])
-         else (maxBound, [])
-  | otherwise =let
-     paths = [(totalCost, i : restPath) |
-             j <- set2List k,
-             let edgeWeight = weight i j g,
-             edgeWeight < maxBound,
-             let (subCost, restPath) = findTable a (j, delSet j k),
-             not (null restPath),
-             let totalCost = edgeWeight + subCost]
-        in if null paths
-           then (maxBound, [])
-           else minimum paths
-   
+    | setEmpty k =  if (weight i n g >= maxBound) then (weight i n g , [i,n] ) else (maxBound::Int, [] )
+    | otherwise = minimum [ addFst(findTable a (j,delSet j k )) (weight i j g) | j <- set2List k  ]
+    where addFst (c,p) w = (w+c, i:p)
 
 bndsTsp :: Int -> ( ( Int , Set ) , ( Int , Set ) )
 bndsTsp n = ( ( 1 , emptySet ) , (n , fullSet n) )
@@ -128,7 +114,7 @@ tsp g = findTable t (n, fullSet (n - 1))
 main :: IO ()
 main = do
     let bounds = (1, 5)
-    let edges =[(1, 2, 5), (2, 3, 10), (3, 1, 15),(4, 5, 15)]
+    let edges = [(1,2,10), (1,2,10)]
     let graph = mkGraph False bounds edges
     print graph
     let (cost, path) = tsp graph  -- Call the TSP function

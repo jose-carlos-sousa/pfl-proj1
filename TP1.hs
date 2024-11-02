@@ -276,7 +276,7 @@ compTsp g n a (i,k)
              let (subCost, restPath) = findTable a (j, delSet j k),
              not (null restPath),
              let totalCost = edgeWeight + subCost]
-        in if null paths
+        in if null paths || paths == []
            then (maxBound, [])
            else minimum paths
    
@@ -285,11 +285,13 @@ bndsTsp :: Int -> ( ( Int , Set ) , ( Int , Set ) )
 bndsTsp n = ( ( 1 , emptySet ) , (n , fullSet n) )
 
 tsp :: Matrix -> (Int, [Int])
-tsp g = findTable t (n, fullSet (n - 1))
+tsp g
+    | n == 0    = (0, [])         
+    | n == 1    = (0, [0])        
+    | otherwise = findTable t (n, fullSet (n - 1))
     where
         n = length (nodes g)
         t = dynamic (compTsp g n) (bndsTsp n)
-
 
 travelSales :: RoadMap -> Path
 travelSales roadmap = map (cities roadmap !!) (map (\n -> n - 1) (snd (tsp (roadMapToMatrix roadmap))))
@@ -304,6 +306,8 @@ gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2",
 gTest3 :: RoadMap -- unconnected graph
 gTest3 = [("0", "1", 5), ("1", "2", 10), ("2", "0", 15)]
 
+gTest4 :: RoadMap -- test graph
+gTest4 = []
 main :: IO ()
 main = do
     let citi = cities gTest1
