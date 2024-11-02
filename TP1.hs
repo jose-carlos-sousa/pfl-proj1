@@ -254,23 +254,6 @@ pathDistanceAdj (c1:c2:rest) adjList =
     case Data.List.lookup c1 adjList >>= lookup c2 of
         Just dist -> dist + pathDistanceAdj (c2:rest) adjList
 
-
-
-bndsFib :: Int -> (Int, Int)
-bndsFib n = (0, n)
-
--- Compute Fibonacci using the provided table
-compFib :: Table Int Int -> Int -> Int
-compFib t i
-    | i == 0    = 0
-    | i == 1    = 1
-    | otherwise = findTable t (i - 1) + findTable t (i - 2)
-
--- Fibonacci function using dynamic programming
-fib :: Int -> Int
-fib n = findTable t n
-  where t = dynamic compFib (bndsFib n)
-
 compTsp :: Matrix -> Int -> Table TspEntry TspCoord -> TspCoord -> TspEntry
 compTsp g n a (i, k)
     |setEmpty k =if (weight i n g) < maxBound then (weight i n g, [i, n]) else (maxBound, []) -- If the set is empty, return the weight of the edge from i to n
