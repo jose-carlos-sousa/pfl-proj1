@@ -1,6 +1,29 @@
 import qualified Data.List
 import qualified Data.Array
 import qualified Data.Bits
+import Debug.Trace
+
+newTable ::(Data.Array.Ix b) =>[(b, a)] -> Table a b
+findTable ::(Data.Array.Ix b) =>Table a b -> b -> a
+updTable ::(Data.Array.Ix b) => (b,a) -> Table a b -> Table a b
+
+newtype Table a b = Tbl (Data.Array.Array b a)
+    deriving Show
+
+
+newTable l = Tbl (Data.Array.array (lo, hi) l)
+  where
+    indices = map fst l
+    lo      = minimum indices
+    hi      = maximum indices
+
+findTable (Tbl a) i = a Data.Array.! i
+
+updTable p@(i,x) (Tbl a) = Tbl (a Data.Array.// [p])
+
+dynamic :: Data.Array.Ix coord => (Table entry  coord -> coord -> entry) -> (coord,coord) ->(Table entry coord)
+dynamic compute bnds = t
+    where t = newTable (map ( \coord -> ( coord , compute t coord) ) (Data.Array.range bnds ) )
 
 type City = String
 type Path = [City]
@@ -46,24 +69,16 @@ roadMapToAdjList ((city1, city2, dist):rest) =
     where
         adjList = roadMapToAdjList rest
 
+cityIndex roadMap city = fromMaybe (-1) (Data.List.elemIndex city (cities roadMap))
+
 roadMapToMatrix :: RoadMap -> Matrix
-roadMapToMatrix roadMap = Data.Array.array bounds content
-  where
-    citiesList = cities roadMap 
-    n = length citiesList
-    bounds = ((0, 0), (n - 1, n - 1))
-    cityIndex city = fromMaybe (-1) (Data.List.elemIndex city citiesList)
-    initialContent = [((i, j), if i == j then Just 0 else Nothing) | i <- [0..n-1], j <- [0..n-1]]
+roadMapToMatrix roadMap = mkGraph False bounds edges
+  where 
+    citi = cities roadMap
+    bounds = (1, length citi)  -- Adjust bounds for one-based indexing
+    edges = [((cityIndex roadMap c1) + 1, (cityIndex roadMap c2) + 1, d) | (c1, c2, d) <- roadMap]
 
-    updatedContent = foldl (\acc (c1, c2, dist) ->
-        let idx1 = cityIndex c1
-            idx2 = cityIndex c2
-        in if idx1 /= -1 && idx2 /= -1
-           then ((idx1, idx2), Just dist) : ((idx2, idx1), Just dist) : acc
-           else acc) initialContent roadMap
-
-    content = Data.List.foldl' (\acc ((i,j), dist) -> ((i,j), dist) : acc) [] updatedContent
-
+   
 
 -- Given a roadmap returns unique cities
 -- Does this by using nub which returns unique elements in a List
@@ -112,7 +127,6 @@ rome roadMap =
     in map fst (filter (\(_, degree) -> degree == maxDegree) degrees)
 
 
-cityIndex roadMap city = fromMaybe (-1) (Data.List.elemIndex city (cities roadMap))
 
 -- Update the mask to include the given city
 updateMask :: RoadMap -> Integer -> City -> Integer
@@ -177,52 +191,108 @@ dijkstra roadMap end ((totalDist, curr, currPath):queue) visited paths
         in dijkstra roadMap end newQueue (curr:visited) paths
 
 
+
+bndsFib :: Int -> (Int, Int)
+bndsFib n = (0, n)
+
+-- Compute Fibonacci using the provided table
+compFib :: Table Int Int -> Int -> Int
+compFib t i
+    | i == 0    = 0
+    | i == 1    = 1
+    | otherwise = findTable t (i - 1) + findTable t (i - 2)
+
+-- Fibonacci function using dynamic programming
+fib :: Int -> Int
+fib n = findTable t n
+  where t = dynamic compFib (bndsFib n)
+
+
+mkGraph dir bnds@(1,u) es
+    = emptyArray Data.Array.// ([((x1,x2), Just w) | (x1,x2,w) <-es]++ if dir then [] else [((x2,x1), Just w) | (x1 ,x2 ,w) <-es , x1 /=x2])
+    where emptyArray = Data.Array.array ((1,1),(u,u)) [((x1,x2), Nothing) | x1 <- Data.Array.range bnds, x2 <- Data.Array.range bnds]
+
+
+
+nodes g = Data.Array.range (1,u ) where ((1, _), (u,_)) = Data.Array.bounds g
+
+weight x y g = let w = g Data.Array.! (x, y) in
+    trace ("Looking up weight for edge (" ++ show x ++ ", " ++ show y ++ "): " ++ show w) $
+    case w of
+        Just weightValue -> weightValue
+        Nothing -> maxBound
+
+
+type Set = Int
+
+emptySet = 0 
+
+setEmpty n = n ==0
+
+
+fullSet n | (n>=0) && (n<=maxSet)  = 2 ^ (n+ 1 ) -2
+          |  otherwise = error ( " fullset : illegal set = " ++ show n)
+
+--adiciona bit a uma mascara
+addSet i s = d_*e+m
+    where(d,m) = divMod s e
+         e = 2^i
+         d_ = if odd d then d   else d+1
+
+--remove bit de uma mascara
+delSet i s = d_ * e + m
+  where (d, m) = divMod s e
+        e = 2 ^ i
+        d_ = if odd d then d - 1 else d
+
+set2List s = s2l s 0
+        where   s2l 0 _ = []
+                s2l n i | odd n   = i : s2l (n `div` 2) (i+1)
+                        | otherwise = s2l (n `div` 2) (i+1)
+
+maxSet = truncate ( logBase 2 ( fromIntegral (maxBound :: Int ) ) ) - 1
+
+
+type TspCoord = ( Int , Set  )
+type TspEntry = ( Int , [Int] ) --An entry in the table is a tuple which consists of the value c (of type Int) and the corresponding shortest path (a list of vertices). 
+
+
+
+adjacentNodes :: Matrix -> Int -> [Int]
+adjacentNodes g v1 = [v2 | v2 <- nodes g, (g Data.Array.! (v1, v2)) /= Nothing]
+
+compTsp :: Matrix -> Int -> Table TspEntry TspCoord -> TspCoord -> TspEntry
+compTsp g n a (i,k)
+  | setEmpty k = 
+      let finalEdgeWeight = weight i n g
+      in if finalEdgeWeight < maxBound 
+         then (finalEdgeWeight, [i,n])
+         else (maxBound, [])
+  | otherwise =let
+     paths = [(totalCost, i : restPath) |
+             j <- set2List k,
+             let edgeWeight = weight i j g,
+             edgeWeight < maxBound,
+             let (subCost, restPath) = findTable a (j, delSet j k),
+             not (null restPath),
+             let totalCost = edgeWeight + subCost]
+        in if null paths
+           then (maxBound, [])
+           else minimum paths
+   
+
+bndsTsp :: Int -> ( ( Int , Set ) , ( Int , Set ) )
+bndsTsp n = ( ( 1 , emptySet ) , (n , fullSet n) )
+
+tsp :: Matrix -> (Int, [Int])
+tsp g = findTable t (n, fullSet (n - 1))
+    where
+        n = length (nodes g)
+        t = dynamic (compTsp g n) (bndsTsp n)
+
+
 travelSales :: RoadMap -> Path
-travelSales roadmap =
-    let cityList = cities roadmap
-        matrix = roadMapToMatrix roadmap
-        n = length cityList
-        dpMatrix = createDPMatrix n
-        startMask = Data.Bits.setBit 0 0  -- start with only city 0 visited
-        indicesPath = tspDP 0 startMask matrix n dpMatrix
-    in map (cityList !!) indicesPath
-
-createDPMatrix :: Int -> Data.Array.Array (Int, Int) [Int]
-createDPMatrix n = Data.Array.array ((0,0), (n-1, (1 `Data.Bits.shiftL` n) - 1)) 
-                  [((i,j), []) | i <- [0..n-1], j <- [0..(1 `Data.Bits.shiftL` n) - 1]]
-
-tspDP :: Int -> Int -> Matrix -> Int -> Data.Array.Array (Int, Int) [Int] -> [Int]
-tspDP currentCity visited mat n dpMatrix =
-    case dpMatrix Data.Array.! (currentCity, visited) of
-        path@(_:_) -> path  -- Return cached result if it exists
-        [] ->  -- Compute if not found
-            let result = 
-                    if Data.Bits.popCount visited == n then  -- all cities visited
-                        case mat Data.Array.! (currentCity, 0) of  -- check path back to start
-                            Just cost | cost >= 0 -> [currentCity, 0]
-                            _ -> []
-                    else
-                        let -- Get unvisited cities
-                            nextCities = [city | city <- [0..n-1], 
-                                        not (Data.Bits.testBit visited city)]
-                            -- Try paths through each unvisited city
-                            paths = [(totalCost, currentCity : restPath) |
-                                    nextCity <- nextCities,
-                                    let edgeCost = fromMaybe maxBound (mat Data.Array.! (currentCity, nextCity)),
-                                    edgeCost < maxBound,
-                                    let newVisited = Data.Bits.setBit visited nextCity,
-                                    let restPath = tspDP nextCity newVisited mat n dpMatrix,
-                                    not (null restPath),
-                                    let pathCosts = [fromMaybe maxBound (mat Data.Array.! (a, b)) | 
-                                                   (a, b) <- zip (currentCity : restPath) restPath],
-                                    let totalCost = sum pathCosts]
-                        in if null paths
-                           then []
-                           else snd (Data.List.minimumBy compareFst paths)
-                
-                newDpMatrix = dpMatrix Data.Array.// [((currentCity, visited), result)]
-            in result
-
+travelSales roadmap = map (cities roadmap !!) (map (\n -> n - 1) (snd (tsp (roadMapToMatrix roadmap))))
 
 
 gTest1 :: RoadMap
@@ -232,4 +302,17 @@ gTest2 :: RoadMap
 gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2","3",30)]
 
 gTest3 :: RoadMap -- unconnected graph
-gTest3 = [("0","1",4),("2","3",2),("2","0",2)]
+gTest3 = [("0", "1", 5), ("1", "2", 10), ("2", "0", 15)]
+
+main :: IO ()
+main = do
+    let citi = cities gTest1
+    let bounds = (1, length citi)
+    let edges = [(cityIndex gTest1 c1 + 1, cityIndex gTest1 c2 + 1, d) | (c1, c2, d) <- gTest1]
+    print $ "Cities: " ++ show citi
+    print $ "Bounds: " ++ show bounds
+    print $ "Edges: " ++ show edges
+    let graph = mkGraph False bounds edges
+    print $ "Graph: " ++ show graph
+    let (cost, path) = tsp graph  -- Call the TSP function
+    putStrLn $ "Minimum cost: " ++ show cost ++ ", Path: " ++ show path
