@@ -92,8 +92,8 @@ A abordagem de programação dinâmica proporciona um desempenho razoavelmente b
 
 José Sousa: 50 %
 
-functions implemented: 1 3 5 7 9
+funções implementadas: 1 3 5 7 9
 
 João Mendes: 50 %
 
-functions implemented: 2 4 6 8
+funções implementadas: 2 4 6 8
