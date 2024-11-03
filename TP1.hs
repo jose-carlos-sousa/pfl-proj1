@@ -179,28 +179,20 @@ rome roadMap =
     in map fst (filter (\(_, degree) -> degree == maxDegree) degrees)
 
 
-
--- Update the mask to include the given city
--- Given a roadmap, a mask, and a city, adds the bit at index of city to mask
-updateMask :: RoadMap -> Integer -> City -> Integer
-updateMask roadMap mask city = mask Data.Bits..|. (1 `Data.Bits.shiftL` (cityIndex roadMap city))
-
--- Given a roadaMap, an adjacency list, a current city, a current mask returns the mask with the cities visited
--- Dfs is O(V+E) goes through all the cities and all the edges
-dfs :: RoadMap -> AdjList -> City -> Integer -> Integer
-dfs roadMap adjList currentCity currentMask =
-    if Data.Bits.testBit currentMask (cityIndex roadMap currentCity)
-    then 0 -- Already visited
-    else neighborResults Data.Bits..|. (1 `Data.Bits.shiftL` (cityIndex roadMap currentCity)) -- Include current city in the result
+-- Given a roadmap, adjacency list, current city and visited cities returns the list of visited cities
+-- Dfs is O(V + E) goes through all the cities and all the edges in the worst case
+dfs :: RoadMap -> AdjList -> City -> [City] -> [City]
+dfs roadMap adjList currentCity visited
+    | currentCity `elem` visited = visited -- Already visited
+    | otherwise =
+        foldl (\acc neighbor -> dfs roadMap adjList neighbor acc) (currentCity : visited) neighbors
   where
-    updatedMask = Data.Bits.setBit currentMask (cityIndex roadMap currentCity)
-    neighbors = [ city | (city, distance) <- adjacent roadMap currentCity ]
-    neighborResults = foldl (\acc neiCity -> acc Data.Bits..|. dfs roadMap adjList neiCity updatedMask) 0 neighbors
+    neighbors = [city | (city, _) <- adjacent roadMap currentCity]
 
 -- Given a roadmap it return a bool that says if the graph is strongly connected
--- Time complexity will be O(n²) n calls to O(n+e) dfs
+-- Time complexity will be O(V + E)
 isStronglyConnected :: RoadMap -> Bool
-isStronglyConnected roadMap = all (\city -> Data.Bits.popCount (dfs roadMap adjList city 0) == length allCities) allCities
+isStronglyConnected roadMap = length (dfs roadMap adjList (head allCities) []) == length allCities
                                 where adjList = roadMapToAdjList roadMap
                                       allCities = cities roadMap
                                 
