@@ -192,10 +192,12 @@ dfs roadMap adjList currentCity visited
 -- Given a roadmap it return a bool that says if the graph is strongly connected
 -- Time complexity will be O(V + E)
 isStronglyConnected :: RoadMap -> Bool
-isStronglyConnected roadMap = length (dfs roadMap adjList (head allCities) []) == length allCities
-                                where adjList = roadMapToAdjList roadMap
-                                      allCities = cities roadMap
-                                
+isStronglyConnected roadMap =
+    let allCities = cities roadMap
+        adjList = roadMapToAdjList roadMap
+    in  case allCities of
+            [] -> True  -- An empty graph is trivially connected
+            (startCity:_) -> length (dfs roadMap adjList startCity []) == length allCities
 
 type QueueEntry = (Distance, City, Path) -- Entry in the priority queue
 
