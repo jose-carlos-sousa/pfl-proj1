@@ -152,13 +152,15 @@ set2List s = s2l s 0
 cities :: RoadMap -> [City]
 cities roadmap = Data.List.nub ([x  | (x,_,_) <- roadmap] ++ [y  | (_,y,_) <- roadmap])
 
+-- Given a roadmap and two cities returns if they are adjacent
+-- This will be O(n) where n is the size of the roadmap
 
 areAdjacent :: RoadMap -> City -> City -> Bool
 areAdjacent roadMap city1 city2 = any (\(c1, c2, _) -> (c1 == city1 && c2 == city2) || (c1 == city2 && c2 == city1)) roadMap
 
 -- Basically using list comprehension gets the element where c1 is first and c2 second or vice-versa
---This will be O(n) it goes over the whole list
---note to myself maybe using find would be better as it would stop earlier complexity wouldnt change in big O tho
+-- This will be O(n) it goes over the whole list
+-- note to myself maybe using find would be better as it would stop earlier complexity wouldnt change in big O tho
 
 distance :: RoadMap -> City -> City -> Maybe Distance
 distance roadmap city1 city2 =case [d | (c1, c2, d) <- roadmap , (city1 ==c1 && city2==c2) || (city1 ==c2 && city2==c1)] of
@@ -166,11 +168,13 @@ distance roadmap city1 city2 =case [d | (c1, c2, d) <- roadmap , (city1 ==c1 && 
                                 [] ->Nothing
                                 _   -> Nothing  -- In case there are multiple distances
 
+-- Given a roadmap and a city returns the adjacent cities and their distances
+-- This will be O(n) + O(n) which is just O(n) where n is the size of the roadmap
 
 adjacent :: RoadMap -> City -> [(City,Distance)]
 adjacent roadMap city = [(c2, dist) | (c1, c2, dist) <- roadMap, c1 == city]++[(c1, dist) | (c1, c2, dist) <- roadMap, c2 == city]
 
---Basically for every pair in Path I check if exists if it does it is its distance plus the distance of rest of path if it doesnt exist is just Nothing
+-- Basically for every pair in Path I check if exists if it does it is its distance plus the distance of rest of path if it doesnt exist is just Nothing
 -- complexity is O(m*n) where m is path size and n is the size of the roadmap
 
 pathDistance :: RoadMap -> Path -> Maybe Distance
@@ -182,7 +186,10 @@ pathDistance roadmap (c1:c2:rest) = case distance roadmap c1 c2 of
                                                     Nothing -> Nothing
                                     Nothing -> Nothing
 
-
+-- Given a roadmap returns the cities with the most neighbours (highest degree)
+-- We first convert the roadmap to an adjacency list for easy degree calculation
+-- Conversion is O(m*n) where n is the size of the roadmap and m is the number of edges
+-- Total complexity is O(m*n + n) = O(m*n)
 
 rome :: RoadMap -> [City]
 rome roadMap =
@@ -217,20 +224,21 @@ isStronglyConnected roadMap = all (\city -> Data.Bits.popCount (dfs roadMap adjL
                                       allCities = cities roadMap
                                 
 
-type QueueEntry = (Distance, City, Path)
+type QueueEntry = (Distance, City, Path) -- Entry in the priority queue
 
--- Insert into sorted queue (priority queue implementation)
+-- Insert into sorted queue (priority queue implementation using a list)
 insertQueue :: QueueEntry -> [QueueEntry] -> [QueueEntry]
 insertQueue x [] = [x] 
 insertQueue x (y:ys) = 
     let (d1, _, _) = x  
         (d2, _, _) = y 
     in if d1 <= d2 then 
-        x : y : ys       -- If d1 is less than or equal to d2, place x in front of y
+        x : y : ys
        else 
-        y : insertQueue x ys  -- Otherwise, continue inserting x into the rest of the queue
+        y : insertQueue x ys
 
--- shortestPath function using Dijkstra's algorithm
+-- shortestPath function using Dijkstra's algorithm with adjacency list
+-- The complexity of this function is O((V + E) * V) where V is the number of cities and E is the number of edges
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath roadMap start end 
     | start == end = [[start]]
@@ -295,8 +303,7 @@ tsp g
         t = dynamic (compTsp g n) (bndsTsp n) -- Create a dynamic table to store the results of the subproblems
 
 --Takes a roadMap and returns the corresponding TSP path
---Complexity of tsp is O(n²*2^n) where n is the number of nodes in the graph
---For each entry in the table (n*2^n entries) it requires up to n operations to compute
+--Complexity of tsp is O(n*2^n) where n is the number of nodes in the graph
 travelSales :: RoadMap -> Path
 travelSales roadmap = map (cities roadmap !!) (map (\n -> n - 1) (snd (tsp (roadMapToMatrix roadmap))))
 
