@@ -139,6 +139,7 @@ cities roadmap = Data.List.nub ([x  | (x,_,_) <- roadmap] ++ [y  | (_,y,_) <- ro
 areAdjacent :: RoadMap -> City -> City -> Bool
 areAdjacent roadMap city1 city2 = any (\(c1, c2, _) -> (c1 == city1 && c2 == city2) || (c1 == city2 && c2 == city1)) roadMap
 
+-- Takes roadmap city1 city2 and returns direct distance between them if it exists or Nothing otherwise
 -- Basically using list comprehension gets the element where c1 is first and c2 second or vice-versa
 -- This will be O(n) it goes over the whole list
 
@@ -154,6 +155,7 @@ distance roadmap city1 city2 =case [d | (c1, c2, d) <- roadmap , (city1 ==c1 && 
 adjacent :: RoadMap -> City -> [(City,Distance)]
 adjacent roadMap city = [(c2, dist) | (c1, c2, dist) <- roadMap, c1 == city]++[(c1, dist) | (c1, c2, dist) <- roadMap, c2 == city]
 
+-- Takes roadmap and path, returns total distance of path or nothing
 -- Basically for every pair in Path it checks its distance and adds the distance of the rest of the path if that edge doesn't exist then just returns Nothing
 -- complexity is O(m*n) where m is path size and n is the size of the roadmap
 
@@ -214,6 +216,7 @@ insertQueue x (y:ys) =
         y : insertQueue x ys
 
 -- shortestPath function using Dijkstra's algorithm with adjacency list
+-- Takes roadmap , start city, end city and returns shortest paths between them
 -- The complexity of this function is O((V + E) * V) where V is the number of cities and E is the number of edges
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath roadMap start end 
@@ -223,6 +226,10 @@ shortestPath roadMap start end
         in dijkstra adjList end [(0, start, [start])] [] []
 
 -- Main Dijkstra's algorithm implementation
+-- This function finds the shortest paths from a starting city to a destination city
+-- using Dijkstra's algorithm. It processes an adjacency list representing the graph,
+-- exploring cities based on their cumulative distances and maintaining a list of visited cities.
+-- The function returns all possible shortest paths to the specified destination.
 dijkstra :: AdjList -> City -> [QueueEntry] -> [City] -> [Path] -> [Path]
 dijkstra _ _ [] _ paths = paths
 dijkstra adjList end ((totalDist, curr, currPath):queue) visited paths
@@ -284,6 +291,10 @@ tsp g
 -- For each entry in the table (n*2^n entries) it requires up to n operations to compute
 travelSales :: RoadMap -> Path
 travelSales roadmap = map (cities roadmap !!) (map (\n -> n - 1) (snd (tsp (roadMapToMatrix roadmap))))
+
+
+tspBruteForce :: RoadMap -> Path
+tspBruteForce = undefined -- only for groups of 3 people; groups of 2 people: do not edit this function
 
 -- Some graphs to test your work
 
