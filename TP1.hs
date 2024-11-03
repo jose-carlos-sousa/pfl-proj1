@@ -12,24 +12,24 @@ type TspCoord = (Int, Set)
 type TspEntry = (Int, [Int]) -- An entry in the table is a tuple consisting of the value c (of type Int) and the corresponding shortest path (a list of vertices).
 
 
-newTable ::(Data.Array.Ix b) =>[(b, a)] -> Table a b
-findTable ::(Data.Array.Ix b) =>Table a b -> b -> a
-updTable ::(Data.Array.Ix b) => (b,a) -> Table a b -> Table a b
-
+--generic table definition provided by the book RL99
 newtype Table a b = Tbl (Data.Array.Array b a)
     deriving Show
 
 
+newTable ::(Data.Array.Ix b) =>[(b, a)] -> Table a b
 newTable l = Tbl (Data.Array.array (lo, hi) l)
   where
     indices = map fst l
     lo      = minimum indices
     hi      = maximum indices
 
+--Given a table and a coord returns the value at that coord
+findTable ::(Data.Array.Ix b) =>Table a b -> b -> a
 findTable (Tbl a) i = a Data.Array.! i
 
-updTable p@(i,x) (Tbl a) = Tbl (a Data.Array.// [p])
 
+--Given a function that maps coord to entries and a range of coords returns a table with the values of the function at each coord
 dynamic :: Data.Array.Ix coord => (Table entry  coord -> coord -> entry) -> (coord,coord) ->(Table entry coord)
 dynamic compute bnds = t
     where t = newTable (map ( \coord -> ( coord , compute t coord) ) (Data.Array.range bnds ) )
@@ -59,12 +59,14 @@ toBinary n = reverse (toBinary' n)
     toBinary' x = let (q, r) = x `divMod` 2
                   in (if r == 0 then '0' else '1') : toBinary' q
 
+--Given a city and a neighbor with distance adds the neighbor to the city in the adjlist
 addNeighbor :: City -> (City, Distance) -> AdjList -> AdjList
 addNeighbor city neighbor [] = [(city, [neighbor])]
 addNeighbor city neighbor ((c, neighbors):rest)
     | city == c  = (c, neighbor : neighbors) : rest
     | otherwise  = (c, neighbors) : addNeighbor city neighbor rest
 
+--Given a roadmap returns the corresponding adjlist
 roadMapToAdjList :: RoadMap -> AdjList
 roadMapToAdjList [] = []
 roadMapToAdjList ((city1, city2, dist):rest) =
@@ -72,8 +74,11 @@ roadMapToAdjList ((city1, city2, dist):rest) =
     where
         adjList = roadMapToAdjList rest
 
+--Given a roadmap and a city returns the index of the city in the roadmap
+cityIndex :: RoadMap -> City -> Int
 cityIndex roadMap city = fromMaybe (-1) (Data.List.elemIndex city (cities roadMap))
 
+--Given a roadmap returns the corresponding matrix
 roadMapToMatrix :: RoadMap -> Matrix
 roadMapToMatrix roadMap = mkGraph False bounds edges
   where 
@@ -81,34 +86,39 @@ roadMapToMatrix roadMap = mkGraph False bounds edges
     bounds = (1, length citi)  -- Adjust bounds for one-based indexing
     edges = [((cityIndex roadMap c1) + 1, (cityIndex roadMap c2) + 1, d) | (c1, c2, d) <- roadMap]
 
-   
+--Given a bool that says if the graph is directed, a bound and a list of edges returns the corresponding matrix
 mkGraph :: Bool -> (Int, Int) -> [(Int, Int, Distance)] -> Matrix
 mkGraph dir bnds@(1,u) es
     = emptyArray Data.Array.// ([((x1,x2), Just w) | (x1,x2,w) <-es]++ if dir then [] else [((x2,x1), Just w) | (x1 ,x2 ,w) <-es , x1 /=x2])
     where emptyArray = Data.Array.array ((1,1),(u,u)) [((x1,x2), Nothing) | x1 <- Data.Array.range bnds, x2 <- Data.Array.range bnds]
 
-
+--Given a matrix returns the nodes
 nodes :: Matrix -> [Int]
 nodes g = Data.Array.range (1,u ) where ((1, _), (u,_)) = Data.Array.bounds g
 
+--Given 2 nodes and a matrix returns the weight of the edge between them
 weight :: Int -> Int -> Matrix -> Distance
 weight x y g = let w = g Data.Array.! (x, y) in
     case w of
         Just weightValue -> weightValue
         Nothing -> maxBound
 
+--Given a matrix and a node returns the adjacent nodes
 adjacentNodes :: Matrix -> Int -> [Int]
 adjacentNodes g v1 = [v2 | v2 <- nodes g, (g Data.Array.! (v1, v2)) /= Nothing]
 
+--Set type defined in RL99
 type Set = Integer  
 
+--creates an empty set
 emptySet :: Set
 emptySet = 0
 
+--checks if a set is empty
 setEmpty :: Set -> Bool
 setEmpty n = n == 0
 
-
+--creates a full set
 fullSet :: Int -> Set
 fullSet n = 2 ^ (n + 1) - 2
 
@@ -126,7 +136,7 @@ delSet i s = d_ * e + m
           e = 2 ^ i
           d_ = if odd d then d - 1 else d
 
--- Converts a set to a list
+-- Converts a set to a list with the setted elements
 set2List :: Set -> [Int]
 set2List s = s2l s 0
     where s2l 0 _ = []
@@ -141,6 +151,7 @@ set2List s = s2l s 0
 
 cities :: RoadMap -> [City]
 cities roadmap = Data.List.nub ([x  | (x,_,_) <- roadmap] ++ [y  | (_,y,_) <- roadmap])
+
 
 areAdjacent :: RoadMap -> City -> City -> Bool
 areAdjacent roadMap city1 city2 = any (\(c1, c2, _) -> (c1 == city1 && c2 == city2) || (c1 == city2 && c2 == city1)) roadMap
@@ -186,7 +197,8 @@ rome roadMap =
 updateMask :: RoadMap -> Integer -> City -> Integer
 updateMask roadMap mask city = mask Data.Bits..|. (1 `Data.Bits.shiftL` (cityIndex roadMap city))
 
-
+-- Given a roadaMap, an adjacency list, a current city, a current mask returns the mask with the cities visited
+-- Dfs is O(V+E) goes through all the cities and all the edges
 dfs :: RoadMap -> AdjList -> City -> Integer -> Integer
 dfs roadMap adjList currentCity currentMask =
     if Data.Bits.testBit currentMask (cityIndex roadMap currentCity)
@@ -197,13 +209,13 @@ dfs roadMap adjList currentCity currentMask =
     neighbors = [ city | (city, distance) <- adjacent roadMap currentCity ]
     neighborResults = foldl (\acc neiCity -> acc Data.Bits..|. dfs roadMap adjList neiCity updatedMask) 0 neighbors
 
+-- Given a roadmap it return a bool that says if the graph is strongly connected
 -- Time complexity will be O(n²) n calls to O(n+e) dfs
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected roadMap = all (\city -> Data.Bits.popCount (dfs roadMap adjList city 0) == length allCities) allCities
                                 where adjList = roadMapToAdjList roadMap
                                       allCities = cities roadMap
                                 
-
 
 type QueueEntry = (Distance, City, Path)
 
@@ -254,6 +266,7 @@ pathDistanceAdj (c1:c2:rest) adjList =
     case Data.List.lookup c1 adjList >>= lookup c2 of
         Just dist -> dist + pathDistanceAdj (c2:rest) adjList
 
+--takes matrix ,last node, table and table coord (with cur node and state)  and returns the tspentry with the cost and path of the tsp at that state
 compTsp :: Matrix -> Int -> Table TspEntry TspCoord -> TspCoord -> TspEntry
 compTsp g n a (i, k)
     |setEmpty k =if (weight i n g) < maxBound then (weight i n g, [i, n]) else (maxBound, []) -- If the set is empty, return the weight of the edge from i to n
@@ -267,10 +280,11 @@ compTsp g n a (i, k)
                     not (null restPath),
                     let totalCost = edgeWeight + subCost]
 
-
+-- takes n (size of matrix) and returns the bounds for the memo table
 bndsTsp :: Int -> ((Int, Set), (Int, Set))
 bndsTsp n = ((1, emptySet), (n, fullSet (n - 1)))
 
+--Takes a matrix and returns a tuple with the cost of the tsp and the path of the tsp
 tsp :: Matrix -> (Int, [Int])
 tsp g
     | n == 0    = (0, [])         -- If there are no nodes, return 0
@@ -280,6 +294,7 @@ tsp g
         n = length (nodes g)
         t = dynamic (compTsp g n) (bndsTsp n) -- Create a dynamic table to store the results of the subproblems
 
+--Takes a roadMap and returns the corresponding TSP path
 --Complexity of tsp is O(n*2^n) where n is the number of nodes in the graph
 travelSales :: RoadMap -> Path
 travelSales roadmap = map (cities roadmap !!) (map (\n -> n - 1) (snd (tsp (roadMapToMatrix roadmap))))
