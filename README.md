@@ -1,4 +1,4 @@
-# pfl-proj1
+# Primeiro Projeto de PFL
 
 ## Implementação de shortestPath com algoritmo de Dijkstra
 
@@ -31,9 +31,9 @@ O algoritmo atinge uma complexidade de tempo de O((V + E) * V), onde (V) é o n�
 
 
 
-## TSP com Programação Dinâmica
+## Implementação do TSP com Programação Dinâmica
 
-A solução para o problema do Caixeiro Viajante (TSP) utilizando programação dinâmica baseia-se na seguinte recursão:
+
 
 ### Recursão Base
 
@@ -53,19 +53,19 @@ Utilizamos as seguintes definições de tipo:
 - **TspCoord**: Representa um estado no TSP, contendo um nó e o conjunto de nós restantes.
 - **TspEntry**: Representa uma entrada na tabela, contendo o custo total e o caminho correspondente.
 
-A escolha de uma bitmask (Set) para representar o estado da tour é mais eficiente em termos de tempo de pesquisa e memória em comparação com listas.
+A utilização de uma bitmask para representar o estado da tour é mais eficiente em termos de tempo de pesquisa e memória do que listas, pois permite operações rápidas de verificação e manipulação de estados com menor uso de memória.
 
 ### Representação do Grafo
 
 A representação do grafo é feita através de uma matriz de adjacência:
 
-- **Matriz de Adjacência**: Esta estrutura é eficiente para buscas rápidas de pesos de arestas. A desvantagem é o uso maior de memória, mas a escolha é justificada para grafos menores como normalmente é o caso dos grafos onde se aplica TSP dado ser um problema NP Completo.
+- **Matriz de Adjacência**: Esta estrutura é eficiente para buscas rápidas de pesos de arestas. A desvantagem é o uso maior de memória, mas a escolha é justificada para grafos menores como normalmente é o caso dos grafos onde se aplica TSP dado ser um problema NP.
 
 ### Complexidade
 
 A complexidade do algoritmo pode ser analisada da seguinte forma:
 
-- **Tamanho da Tabela**: Para representar todos os conjuntos de até n itens, precisamos de 2^n valores. Portanto, o tamanho da tabela é O(n * 2^n).
+- **Tamanho da Tabela**: Para cada n vai haver 2^n valores possiveis para S(máscara) por isso o tamanho da tabela vai ser n* (2 ^ n)
 
 - **Cálculo de Entradas**: Cada entrada na tabela pode exigir até n etapas para ser computada, resultando em uma eficiência total do algoritmo de O(n^2 * 2^n) para o cálculo.
 
@@ -75,15 +75,16 @@ A abordagem de programação dinâmica proporciona um desempenho razoavelmente b
 
 ### Funções Principais
 
-1. **travelSales**: Converte o grafo em uma matriz, chama a função tsp para calcular o custo mínimo e depois converte o resultado de volta para os dados iniciais.
+1. **travelSales**: Converte o grafo em uma matriz de adjacência, chama a função tsp para calcular o custo mínimo e depois converte o resultado de volta para os dados iniciais.
 
-2. **tsp**: Inicializa a tabela dinâmica e começa a busca a partir do nó inicial.
+2. **tsp**: Inicializa a tabela dinâmica e começa a busca a partir do nó n. Armazena os resultados de subproblemas calculados pelo compTsp, evitando cálculos redundantes.
 
 3. **compTsp**: Verifica na tabela o custo de ir em direção a cada nó vizinho, calculando o custo do vizinho no estado S mais o peso da aresta, e escolhe o menor custo, concatenando-o com o caminho atual.
 
 ### Considerações Finais
 
-- A abordagem de programação dinâmica para o TSP oferece uma forma eficiente de resolver o problema, armazenando resultados intermediários.
+- A abordagem de programação dinâmica para o TSP oferece uma forma eficiente de resolver o problema, ao armazenar resultados intermediários.
+
 - O uso de uma matriz de adjacência garante buscas rápidas, compensando o maior uso de memória, o que é aceitável no contexto do TSP.
 
 
@@ -97,3 +98,6 @@ funções implementadas: 1 3 5 7 9
 João Mendes: 50 %
 
 funções implementadas: 2 4 6 8
+
+#### **Referência**:
+ Fethi Rabhi e Guy Lapalme. *Algorithms: A Functional Programming Approach*. Addison-Wesley, 2ª edição, 1999.
