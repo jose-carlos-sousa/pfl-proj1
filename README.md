@@ -66,8 +66,8 @@ A representação do grafo é feita através de uma matriz de adjacência:
 A complexidade do algoritmo pode ser analisada da seguinte forma:
 
 - **Tamanho da Tabela**: Para representar todos os conjuntos de até n itens, precisamos de 2^n valores. Portanto, o tamanho da tabela é O(n * 2^n).
-  
-- **Cálculo de Entradas**: Cada entrada na tabela pode exigir até n etapas para ser computada, resultando em uma eficiência total do algoritmo de O(n * 2^n) para o cálculo.
+
+- **Cálculo de Entradas**: Cada entrada na tabela pode exigir até n etapas para ser computada, resultando em uma eficiência total do algoritmo de O(n^2 * 2^n) para o cálculo.
 
 Consequentemente, a eficiência do algoritmo é O(n^2 * 2^n). Embora essa complexidade pareça considerável, não existe outro algoritmo eficiente conhecido para resolver o problema.
 
