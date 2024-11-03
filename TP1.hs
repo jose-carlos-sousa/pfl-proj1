@@ -295,7 +295,8 @@ tsp g
         t = dynamic (compTsp g n) (bndsTsp n) -- Create a dynamic table to store the results of the subproblems
 
 --Takes a roadMap and returns the corresponding TSP path
---Complexity of tsp is O(n*2^n) where n is the number of nodes in the graph
+--Complexity of tsp is O(n²*2^n) where n is the number of nodes in the graph
+--For each entry in the table (n*2^n entries) it requires up to n operations to compute
 travelSales :: RoadMap -> Path
 travelSales roadmap = map (cities roadmap !!) (map (\n -> n - 1) (snd (tsp (roadMapToMatrix roadmap))))
 
